@@ -1,8 +1,9 @@
 package org.elsys;
 
-import com.sun.security.ntlm.Client;
-
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -10,30 +11,66 @@ import java.util.List;
 
 public class ChatServer {
 
-    private static final int SOCKET_PORT = 7777;
-
-    protected static List<ClientThread> clients = new ArrayList<>();
+    private static List<PrintWriter> writers = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = null;
 
         try {
-            serverSocket = new ServerSocket(SOCKET_PORT);
+            serverSocket = new ServerSocket(Config.SOCKET_PORT);
 
             while (true) {
-                Socket clientServer = serverSocket.accept();
-                System.out.println("Client connected from: " + clientServer.getInetAddress());
+                Socket clientSocket = serverSocket.accept();
+                System.out.println(Config.CLIENT_CONNECTED_PREFIX + clientSocket.getInetAddress());
 
-                ClientThread clientThread = new ClientThread(clientServer);
-                clients.add(clientThread);
-                new Thread(clientThread).start();
+                new Thread(new ClientThread(clientSocket)).start();
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
+
+            System.out.println(Config.SERVER_CLOSED_MESSAGE);
         }
     }
+
+
+    private static final class ClientThread implements Runnable {
+
+        private BufferedReader reader;
+
+        private PrintWriter writer;
+
+        public ClientThread(Socket clientSocket) throws IOException {
+            this.reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            this.writer = new PrintWriter(clientSocket.getOutputStream(), true);
+        }
+
+        @Override
+        public void run() {
+            try {
+                writers.add(this.writer);
+
+                String userInput;
+                while ((userInput = this.reader.readLine()) != null) {
+                    if (userInput.equals(Config.EXIT_WORD)) {
+                        break;
+                    }
+
+                    System.out.println(userInput);
+
+                    for (PrintWriter printWriter : writers) {
+                        printWriter.write(userInput);
+                    }
+                }
+
+                System.out.println(Config.CLIENT_DISCONNECTED_MESSAGE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 }

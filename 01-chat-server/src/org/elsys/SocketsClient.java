@@ -8,24 +8,22 @@ import java.net.Socket;
 
 public class SocketsClient {
 
-    private static final String SOCKET_HOST = "localhost";
-    private static final int SOCKET_PORT = 7777;
-
     public static void main(String[] args) throws IOException {
         Socket echoSocket = null;
 
         try {
-            echoSocket = new Socket(SOCKET_HOST, SOCKET_PORT);
+            echoSocket = new Socket(Config.SOCKET_HOST, Config.SOCKET_PORT);
 
             BufferedReader in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
             PrintWriter out = new PrintWriter(echoSocket.getOutputStream(), true);
 
             BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
 
-            String userInput;
-            while ((userInput = stdIn.readLine()) != null) {
-                out.println(userInput);
-                System.out.println("Server response: " + in.readLine());
+            new Thread(new ServerListener(in, out, stdIn)).start();
+
+            String serverInput;
+            while ((serverInput = in.readLine()) != null) {
+                System.out.println(serverInput);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -35,4 +33,34 @@ public class SocketsClient {
             }
         }
     }
+
+    private static final class ServerListener implements Runnable {
+
+        private BufferedReader reader;
+
+        private PrintWriter writer;
+
+        private BufferedReader stdIn;
+
+        public ServerListener(BufferedReader reader, PrintWriter writer, BufferedReader stdIn) {
+            this.reader = reader;
+            this.writer = writer;
+            this.stdIn = stdIn;
+        }
+
+        @Override
+        public void run() {
+            String userInput;
+
+            try {
+                while ((userInput = stdIn.readLine()) != null) {
+                    this.writer.println(userInput);
+                    System.out.println(this.reader.readLine());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 }
